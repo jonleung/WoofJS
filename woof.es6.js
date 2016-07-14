@@ -130,7 +130,42 @@ function Woof({global = false, fullScreen = false, height = 500, width = 350} = 
   thisContext._renderBackdrop = () => {
     thisContext._backdropContext.clearRect(0, 0, thisContext.width, thisContext.height);
     if (thisContext.backdrop instanceof BrowserImage) {
-      thisContext._backdropContext.drawImage(thisContext.backdrop, 0, 0);
+      try {
+        thisContext._backdropContext.drawImage(thisContext.backdrop, 0, 0);
+      }
+      catch(err) {
+        if (err instanceof DOMException) {
+          // Adapted from https://hacks.mozilla.org/2011/03/the-shortest-image-uploader-ever/
+          var Imgur = Imgur || {};
+
+          Imgur.upload = function(url, callback) {
+              /* Lets build a FormData object*/
+              var fd = new FormData(); // I wrote about it: https://hacks.mozilla.org/2011/01/how-to-develop-a-html5-image-uploader/
+              fd.append("image", url); // Append the file
+              var xhr = new XMLHttpRequest(); // Create the XHR (Cross-Domain XHR FTW!!!) Thank you sooooo much imgur.com
+              xhr.open("POST", "https://api.imgur.com/3/image.json"); // Boooom!
+              xhr.onload = function() {
+                var imgurImageUrl = JSON.parse(xhr.responseText).data.link;
+                callback(imgurImageUrl);
+              }
+
+              xhr.setRequestHeader('Authorization', 'Client-ID 28aaa2e823b03b1'); // Get your own key http://api.imgur.com/
+
+              // Ok, I don't handle the errors. An exercise for the reader.
+
+              /* And now, we send the formdata */
+              xhr.send(fd);
+          }
+          var origImageUrl = thisContext.backdrop.src;
+
+          Imgur.upload(origImageUrl, function(imgurUrl) {
+            thisContext.backdrop.src = imgurUrl;
+          });
+
+          thisContext._backdropContext.drawImage(thisContext.backdrop, 0, 0);
+        }
+      }
+
     } else if (typeof thisContext.backdrop == "string"){
       thisContext._backdropContext.save();
       thisContext._backdropContext.fillStyle=thisContext.backdrop;
